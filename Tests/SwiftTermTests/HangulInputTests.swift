@@ -105,4 +105,47 @@ final class HangulInputTests: XCTestCase {
     func testDoesNotResyllabifySyllableWithoutFinalConsonant() {
         XCTAssertNil(HangulInput.resyllabifyFinalConsonant(base: "하", followingVowel: "ㅔ"))
     }
+
+    func testComposesCompoundVowelIntoSyllable() {
+        XCTAssertEqual(HangulInput.composeCompoundVowel(base: "우", followingVowel: "ㅓ"), "워")
+        XCTAssertEqual(HangulInput.composeCompoundVowel(base: "무", followingVowel: "ㅓ"), "뭐")
+        XCTAssertEqual(HangulInput.composeCompoundVowel(base: "오", followingVowel: "ㅏ"), "와")
+        XCTAssertEqual(HangulInput.composeCompoundVowel(base: "으", followingVowel: "ㅣ"), "의")
+    }
+
+    func testComposesAllCompoundVowels() {
+        let cases: [(Character, Character, Character)] = [
+            ("고", "ㅏ", "과"), ("고", "ㅐ", "괘"), ("고", "ㅣ", "괴"),
+            ("구", "ㅓ", "궈"), ("구", "ㅔ", "궤"), ("구", "ㅣ", "귀"),
+            ("그", "ㅣ", "긔"),
+        ]
+        for (base, vowel, expected) in cases {
+            XCTAssertEqual(
+                HangulInput.composeCompoundVowel(base: base, followingVowel: vowel),
+                expected, "\(base)+\(vowel)")
+        }
+    }
+
+    func testComposesCompoundVowelFromBareJamo() {
+        XCTAssertEqual(HangulInput.composeCompoundVowel(base: "ㅜ", followingVowel: "ㅓ"), "ㅝ")
+        XCTAssertEqual(HangulInput.composeCompoundVowel(base: "ㅗ", followingVowel: "ㅏ"), "ㅘ")
+        XCTAssertEqual(HangulInput.composeCompoundVowel(base: "ㅡ", followingVowel: "ㅣ"), "ㅢ")
+    }
+
+    func testDoesNotComposeNonCombinableVowels() {
+        XCTAssertNil(HangulInput.composeCompoundVowel(base: "우", followingVowel: "ㅏ"))
+        XCTAssertNil(HangulInput.composeCompoundVowel(base: "아", followingVowel: "ㅓ"))
+        XCTAssertNil(HangulInput.composeCompoundVowel(base: "워", followingVowel: "ㅓ"))
+        XCTAssertNil(HangulInput.composeCompoundVowel(base: "ㅏ", followingVowel: "ㅣ"))
+    }
+
+    func testDoesNotComposeCompoundVowelWhenBaseHasFinal() {
+        // A base with a final consonant is resyllabificationEdit territory.
+        XCTAssertNil(HangulInput.composeCompoundVowel(base: "웅", followingVowel: "ㅓ"))
+    }
+
+    func testDoesNotComposeCompoundVowelForNonHangulBase() {
+        XCTAssertNil(HangulInput.composeCompoundVowel(base: "a", followingVowel: "ㅓ"))
+        XCTAssertNil(HangulInput.composeCompoundVowel(base: "ㄱ", followingVowel: "ㅓ"))
+    }
 }
