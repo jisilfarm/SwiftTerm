@@ -160,6 +160,47 @@ enum HangulInput {
             textToInsert: String(prefix.previous) + String(followingSyllable))
     }
 
+    /// Combines two medial vowels into a compound vowel (ㅜ+ㅓ→ㅝ). The Korean
+    /// iOS keyboard can lose its composition state after a committed syllable
+    /// and deliver the trailing vowel as a bare jamo; recombine it here.
+    /// `base` may be a complete syllable without a final consonant
+    /// ("우"+"ㅓ"→"워") or a bare compatibility vowel jamo ("ㅜ"+"ㅓ"→"ㅝ").
+    static func composeCompoundVowel(base: Character, followingVowel: Character) -> Character? {
+        guard let followingIndex = vowelIndexByJamo[followingVowel] else { return nil }
+
+        if let components = syllableComponents(of: base) {
+            guard components.finalIndex == 0,
+                  let combined = combineVowels(components.vowelIndex, followingIndex) else {
+                return nil
+            }
+            return composeSyllable(
+                leadingIndex: components.leadingIndex,
+                vowelIndex: combined)
+        }
+
+        guard let baseIndex = vowelIndexByJamo[base],
+              let combined = combineVowels(baseIndex, followingIndex) else {
+            return nil
+        }
+        return jamoByVowelIndex[combined]
+    }
+
+    private static let jamoByVowelIndex: [Int: Character] =
+        Dictionary(uniqueKeysWithValues: vowelIndexByJamo.map { ($1, $0) })
+
+    private static func combineVowels(_ first: Int, _ second: Int) -> Int? {
+        switch (first, second) {
+        case (8, 0): return 9    // ㅗ + ㅏ -> ㅘ
+        case (8, 1): return 10   // ㅗ + ㅐ -> ㅙ
+        case (8, 20): return 11  // ㅗ + ㅣ -> ㅚ
+        case (13, 4): return 14  // ㅜ + ㅓ -> ㅝ
+        case (13, 5): return 15  // ㅜ + ㅔ -> ㅞ
+        case (13, 20): return 16 // ㅜ + ㅣ -> ㅟ
+        case (18, 20): return 19 // ㅡ + ㅣ -> ㅢ
+        default: return nil
+        }
+    }
+
     private static func syllableComponents(of character: Character) -> (leadingIndex: Int, vowelIndex: Int, finalIndex: Int)? {
         guard let scalar = character.unicodeScalars.first, character.unicodeScalars.count == 1 else { return nil }
         let scalarValue = Int(scalar.value)

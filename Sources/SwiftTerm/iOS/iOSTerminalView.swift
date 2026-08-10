@@ -1860,7 +1860,8 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
         case .prefixReinserted:
             break
         case .none:
-            if tryResyllabifyKoreanFinalBeforeVowel(text) || tryComposeKoreanFinal(text) {
+            if tryResyllabifyKoreanFinalBeforeVowel(text) || tryComposeKoreanFinal(text)
+                || tryComposeKoreanCompoundVowel(text) {
                 return
             }
         }
@@ -2317,6 +2318,33 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
         guard let composed = HangulInput.composeSyllable(base: lastChar, finalIndex: finalIndex) else { return false }
 
         uitiLog("koreanComposeFinal base:\(lastChar) jamo:\(jamo) -> \(composed)")
+
+        beginTextInputEdit()
+        textInputStorage.removeLast()
+        textInputStorage.append(composed)
+        let newOffset = textInputStorage.textInputUTF16Count
+        _markedTextRange = nil
+        _selectedTextRange = TextRange(from: TextPosition(offset: newOffset), to: TextPosition(offset: newOffset))
+        endTextInputEdit()
+
+        sendBackspaceKey()
+        send(txt: String(composed))
+        queuePendingDisplay()
+        return true
+    }
+
+    // Same failure mode as tryComposeKoreanFinal, but for medial vowels: the
+    // IME can fail to combine "ㅜ" + "ㅓ" into "ㅝ" and delivers the trailing
+    // vowel as a standalone insertion, leaving "우ㅓ" instead of "워".
+    private func tryComposeKoreanCompoundVowel(_ text: String) -> Bool {
+        guard isKoreanTextInput else { return false }
+        guard _markedTextRange == nil else { return false }
+        guard _selectedTextRange.isEmpty, _selectedTextRange.endPosition.offset == textInputStorage.textInputUTF16Count else { return false }
+        guard text.count == 1, let vowel = text.first else { return false }
+        guard let lastChar = textInputStorage.last else { return false }
+        guard let composed = HangulInput.composeCompoundVowel(base: lastChar, followingVowel: vowel) else { return false }
+
+        uitiLog("koreanComposeCompoundVowel base:\(lastChar) vowel:\(vowel) -> \(composed)")
 
         beginTextInputEdit()
         textInputStorage.removeLast()
