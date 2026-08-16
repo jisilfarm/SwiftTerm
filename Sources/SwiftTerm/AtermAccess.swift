@@ -54,13 +54,15 @@ extension Terminal {
     /// 에뮬레이터가 버퍼를 채울 때 쓰는 것과 **같은 표**다. 조합 중인 글자는 아직
     /// 버퍼에 없어 `CharData.width`를 물을 수 없는데, 렌더러가 표를 따로 들면
     /// 전각 경계가 어긋난다(C4.1·C4.5).
-    public static func atermColumnWidth(of scalar: UnicodeScalar) -> Int {
+    /// 레이블을 `of`와 갈라 둔 이유: 문자 리터럴은 `Character`로도
+    /// `UnicodeScalar`로도 읽혀, 이름이 같으면 호출부가 모호해진다.
+    public static func atermColumnWidth(ofScalar scalar: UnicodeScalar) -> Int {
         UnicodeUtil.columnWidth(rune: scalar)
     }
 
     /// 글자 하나의 칸 수. 결합 문자가 붙어 있으면 첫 스칼라의 폭을 따른다.
     public static func atermColumnWidth(of character: Character) -> Int {
         guard let first = character.unicodeScalars.first else { return 0 }
-        return max(0, atermColumnWidth(of: first))
+        return max(0, atermColumnWidth(ofScalar: first))
     }
 }
