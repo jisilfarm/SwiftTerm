@@ -6,34 +6,46 @@
 //  internal로 쓰던 값들을 밖에서 읽을 길이 필요하다. 상류 리베이스가 깨지지 않도록
 //  기존 파일은 건드리지 않고 이 파일만 더하며, 심볼에는 aterm 접두사를 붙인다.
 //
+//  축은 둘이다 — **history**(스크롤백을 쥔 일반 버퍼)와 **screen**(눈앞의 활성 버퍼).
+//  스크롤 위치(`yDisp`)에 매인 값은 하나도 두지 않는다. 대안 화면에서는 뜻을 잃고,
+//  M2에서 세션 원본이 서버로 넘어가면 클라이언트가 만질 수 없는 값이기 때문이다.
+//
 
 import Foundation
 
 extension Terminal {
-    /// 활성 버퍼가 보유한 전체 행 수 — 스크롤백을 포함한다.
-    public var atermTotalLines: Int {
-        buffer.lines.count
+    /// 스크롤백을 보유한 일반 버퍼의 전체 행 수.
+    ///
+    /// 대안 화면(vim·less·claude)이 떠 있는 동안에도 이 값과 내용은 얼어붙은 채
+    /// 남는다 — C1.3의 "vim을 띄운 채 이전 셸 출력을 되짚는다"가 서는 근거다.
+    public var atermHistoryLineCount: Int {
+        normalBuffer.lines.count
     }
 
-    /// `buffer.yDisp`가 가질 수 있는 최댓값. 이 값이 곧 스크롤 바닥(최신 출력) 위치다.
-    public var atermMaxScrollPosition: Int {
-        max(0, buffer.lines.count - rows)
+    /// 일반 버퍼의 `index`번째 행. 0이 보유 중 가장 오래된 행이다.
+    public func atermHistoryLine(at index: Int) -> BufferLine? {
+        guard index >= 0, index < normalBuffer.lines.count else { return nil }
+        return normalBuffer.lines[index]
     }
 
-    /// 세션 시작부터 세어 현재 보유 중인 가장 오래된 행의 절대 인덱스.
-    /// 스크롤백 한도를 넘겨 버려진 행 수와 같다.
-    public var atermScrollbackTopIndex: Int {
-        buffer.totalLinesTrimmed
+    /// 지금 활성 버퍼의 화면 `row`행.
+    ///
+    /// 스크롤 위치와 무관하게 언제나 "살아 있는 화면"을 준다. 대안 화면이 떠 있으면
+    /// 그 화면이고, 아니면 일반 버퍼의 마지막 `rows`행이다.
+    public func atermScreenLine(row: Int) -> BufferLine? {
+        guard row >= 0, row < rows else { return nil }
+        let index = buffer.yBase + row
+        guard index >= 0, index < buffer.lines.count else { return nil }
+        return buffer.lines[index]
+    }
+
+    /// 스크롤백 한도를 넘겨 버려진 행 수. 세션 시작부터 누적된다.
+    public var atermTrimmedLineCount: Int {
+        normalBuffer.totalLinesTrimmed
     }
 
     /// 클라이언트 앱이 커서를 숨기라고 요청한 상태인지.
     public var atermIsCursorHidden: Bool {
         cursorHidden
-    }
-
-    /// 지금 표시 중인 뷰포트 기준 커서 행. 스크롤로 커서가 화면 밖에 있으면
-    /// 음수이거나 `rows` 이상이 되며, 그때는 커서를 그리지 않는다.
-    public var atermCursorViewportRow: Int {
-        buffer.yBase + buffer.y - buffer.yDisp
     }
 }
