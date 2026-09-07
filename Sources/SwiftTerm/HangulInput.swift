@@ -120,14 +120,44 @@ enum HangulInput {
         return Character(scalar)
     }
 
+    /// Appends a final consonant to `base`. A base that already carries a single
+    /// final takes a compound final when the pair exists (ㄹ+ㄱ → ㄺ): the Korean
+    /// IME can lose its composition state after committing the first final and
+    /// deliver the second consonant as a bare jamo, leaving "달ㄱ" instead of "닭".
     static func composeSyllable(base: Character, finalIndex: Int) -> Character? {
         guard finalIndex > 0 && finalIndex < finalCount else { return nil }
         guard let components = syllableComponents(of: base) else { return nil }
-        guard components.finalIndex == 0 else { return nil }
+        let combinedFinal: Int
+        if components.finalIndex == 0 {
+            combinedFinal = finalIndex
+        } else if let combined = combineFinals(components.finalIndex, finalIndex) {
+            combinedFinal = combined
+        } else {
+            return nil
+        }
         return composeSyllable(
             leadingIndex: components.leadingIndex,
             vowelIndex: components.vowelIndex,
-            finalIndex: finalIndex)
+            finalIndex: combinedFinal)
+    }
+
+    /// The eleven compound finals, keyed by (existing final, appended consonant).
+    /// Inverse of `splitFinalForFollowingVowel`.
+    private static func combineFinals(_ first: Int, _ second: Int) -> Int? {
+        switch (first, second) {
+        case (1, 19): return 3    // ㄱ + ㅅ -> ㄳ
+        case (4, 22): return 5    // ㄴ + ㅈ -> ㄵ
+        case (4, 27): return 6    // ㄴ + ㅎ -> ㄶ
+        case (8, 1): return 9     // ㄹ + ㄱ -> ㄺ
+        case (8, 16): return 10   // ㄹ + ㅁ -> ㄻ
+        case (8, 17): return 11   // ㄹ + ㅂ -> ㄼ
+        case (8, 19): return 12   // ㄹ + ㅅ -> ㄽ
+        case (8, 25): return 13   // ㄹ + ㅌ -> ㄾ
+        case (8, 26): return 14   // ㄹ + ㅍ -> ㄿ
+        case (8, 27): return 15   // ㄹ + ㅎ -> ㅀ
+        case (17, 19): return 18  // ㅂ + ㅅ -> ㅄ
+        default: return nil
+        }
     }
 
     static func resyllabifyFinalConsonant(base: Character, followingVowel: Character) -> String? {

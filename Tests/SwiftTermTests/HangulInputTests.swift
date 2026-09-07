@@ -8,6 +8,26 @@ final class HangulInputTests: XCTestCase {
             "핫")
     }
 
+    func testComposesCompoundFinalConsonantOntoSingleFinal() {
+        let cases: [(Character, Character, Character)] = [
+            ("각", "ㅅ", "갃"), ("안", "ㅈ", "앉"), ("안", "ㅎ", "않"),
+            ("달", "ㄱ", "닭"), ("살", "ㅁ", "삶"), ("발", "ㅂ", "밟"), ("돌", "ㅅ", "돐"),
+            ("할", "ㅌ", "핥"), ("을", "ㅍ", "읊"), ("달", "ㅎ", "닳"),
+            ("업", "ㅅ", "없"),
+        ]
+        for (base, jamo, expected) in cases {
+            XCTAssertEqual(
+                HangulInput.composeSyllable(base: base, finalIndex: HangulInput.finalIndexByJamo[jamo]!),
+                expected, "\(base)+\(jamo)")
+        }
+    }
+
+    func testDoesNotComposeNonCombinableFinals() {
+        XCTAssertNil(HangulInput.composeSyllable(base: "달", finalIndex: HangulInput.finalIndexByJamo["ㄷ"]!))   // ㄹ+ㄷ 은 없다
+        XCTAssertNil(HangulInput.composeSyllable(base: "각", finalIndex: HangulInput.finalIndexByJamo["ㄱ"]!))   // ㄱ+ㄱ ≠ ㄲ 종성
+        XCTAssertNil(HangulInput.composeSyllable(base: "닭", finalIndex: HangulInput.finalIndexByJamo["ㅅ"]!))   // 이미 겹받침
+    }
+
     func testResyllabifiesFinalConsonantBeforeFollowingVowel() {
         XCTAssertEqual(
             HangulInput.resyllabifyFinalConsonant(base: "핫", followingVowel: "ㅔ"),
